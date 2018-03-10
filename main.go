@@ -19,7 +19,6 @@ func main() {
 		panic(err)
 	}
 
-	/*fmt.Printf("%+v", *conf)*/
 	db, err := database.OpenPostgresqlDB(conf.Postgresql)
 	if err != nil {
 		panic(err)
