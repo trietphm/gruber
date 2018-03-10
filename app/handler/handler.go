@@ -25,7 +25,7 @@ func NewEngine(db database.Database) (*gin.Engine, error) {
 		DB: db,
 	}
 	router := engine.Group("")
-	router.POST("/passenger", handler.CreatePassenger)
+	router.POST("/passengers", handler.CreatePassenger)
 	router.POST("/requests", handler.RequestDrivers)
 
 	driverGroup := router.Group("/drivers")

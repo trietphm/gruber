@@ -1,10 +1,26 @@
 package view
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/trietphm/gruber/model"
 )
+
+type timestamp time.Time
+
+func (t timestamp) MarshalJSON() ([]byte, error) {
+	str := time.Time(t).UTC().Format("2006-01-02T15:04:05Z")
+	return json.Marshal(str)
+}
+
+func (t *timestamp) String() string {
+	return time.Time(*t).String()
+}
+
+func (t *timestamp) Unix() int64 {
+	return time.Time(*t).Unix()
+}
 
 // User response data when sign up user
 type User struct {
@@ -25,7 +41,7 @@ type DriverLocation struct {
 
 // DriverHistory Response get driver history
 type DriverHistory struct {
-	Timestamp time.Time `json:"ts"`
+	Timestamp timestamp `json:"ts"`
 	Location  Location  `json:"location"`
 }
 
@@ -56,7 +72,7 @@ func PopulateDriverHistory(driverLocations []model.DriverLocation) []DriverHisto
 	resp := make([]DriverHistory, len(driverLocations))
 	for i, driverLocation := range driverLocations {
 		resp[i] = DriverHistory{
-			Timestamp: driverLocation.CreatedAt,
+			Timestamp: timestamp(driverLocation.CreatedAt),
 			Location: Location{
 				Lat: driverLocation.Lat,
 				Lng: driverLocation.Lng,
