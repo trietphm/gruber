@@ -1,0 +1,9 @@
+app:
+  port: 8000
+
+postgresql:
+  pg_host: "127.0.0.1"
+  pg_port: "5432"
+  pg_user: "triet"
+  pg_password: "1"
+  pg_name: "gruber"
