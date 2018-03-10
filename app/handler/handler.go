@@ -2,10 +2,12 @@ package handler
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/trietphm/gruber/app/form"
+	"github.com/trietphm/gruber/app/view"
 	"github.com/trietphm/gruber/database"
-	"github.com/trietphm/gruber/form"
 	"github.com/trietphm/gruber/model"
 	"github.com/trietphm/gruber/util"
 )
@@ -43,8 +45,8 @@ func (h *Handler) CreatePassenger(c *gin.Context) {
 		return
 	}
 
-	if input.Name == "" {
-		util.RespBadRequest(c, "Name can not be empty")
+	if err := input.Validate(); err != nil {
+		util.RespBadRequest(c, err.Error())
 		return
 	}
 
@@ -56,9 +58,7 @@ func (h *Handler) CreatePassenger(c *gin.Context) {
 		return
 	}
 
-	resp := struct {
-		ID int `json:"id"`
-	}{
+	resp := view.User{
 		ID: passenger.ID,
 	}
 	util.RespOK(c, resp)
@@ -66,7 +66,25 @@ func (h *Handler) CreatePassenger(c *gin.Context) {
 
 // RequestDrivers Get list nearest drivers
 func (h *Handler) RequestDrivers(c *gin.Context) {
+	var input form.RequestRide
+	if err := c.Bind(&input); err != nil {
+		util.RespBadRequest(c, "Invalid format")
+		return
+	}
 
+	if err := input.Validate(); err != nil {
+		util.RespBadRequest(c, err.Error())
+		return
+	}
+
+	drivers, err := h.DB.GetNearestDrivers(input.Location.Lat, input.Location.Lng)
+	if err != nil {
+		util.RespInternalServerError(c, err)
+		return
+	}
+
+	resp := view.PopulateDriverRequests(drivers)
+	util.RespOK(c, resp)
 }
 
 // CreateDriver Sign up driver
@@ -77,8 +95,8 @@ func (h *Handler) CreateDriver(c *gin.Context) {
 		return
 	}
 
-	if input.Name == "" {
-		util.RespBadRequest(c, "Name can not be empty")
+	if err := input.Validate(); err != nil {
+		util.RespBadRequest(c, err.Error())
 		return
 	}
 
@@ -90,9 +108,7 @@ func (h *Handler) CreateDriver(c *gin.Context) {
 		return
 	}
 
-	resp := struct {
-		ID int `json:"id"`
-	}{
+	resp := view.User{
 		ID: driver.ID,
 	}
 	util.RespOK(c, resp)
@@ -100,12 +116,82 @@ func (h *Handler) CreateDriver(c *gin.Context) {
 
 // UpdateDriverLocation Update driver location
 func (h *Handler) UpdateDriverLocation(c *gin.Context) {
+	var input form.Location
+	if err := c.Bind(&input); err != nil {
+		util.RespBadRequest(c, "Invalid format")
+		return
+	}
 
+	// Validate driver is exists in database
+	driverID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		util.RespNotFound(c)
+		return
+	}
+
+	driver, err := h.DB.GetDriver(driverID)
+	if err != nil {
+		util.RespInternalServerError(c, err)
+		return
+	}
+
+	if driver == nil {
+		util.RespNotFound(c)
+		return
+	}
+
+	// Create location
+	driverLocation := model.DriverLocation{
+		DriverID: driver.ID,
+		Lat:      input.Lat,
+		Lng:      input.Lng,
+	}
+
+	if err := h.DB.CreateDriverLocation(&driverLocation); err != nil {
+		util.RespInternalServerError(c, err)
+		return
+	}
+
+	resp := view.DriverLocation{
+		ID: driverLocation.ID,
+		Location: view.Location{
+			Lat: driverLocation.Lat,
+			Lng: driverLocation.Lng,
+		},
+	}
+	util.RespOK(c, resp)
 }
 
 // GetDriverHistory Get driver's history
 func (h *Handler) GetDriverHistory(c *gin.Context) {
+	// Validate driver is exists in database
+	driverID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		util.RespNotFound(c)
+		return
+	}
 
+	driver, err := h.DB.GetDriver(driverID)
+	if err != nil {
+		util.RespInternalServerError(c, err)
+		return
+	}
+
+	if driver == nil {
+		util.RespNotFound(c)
+		return
+	}
+
+	// 30 minutes ago
+	t := time.Now().Add(-30 * time.Minute)
+	history, err := h.DB.GetDriverHistory(driver.ID, t)
+	if err != nil {
+		util.RespInternalServerError(c, err)
+		return
+	}
+
+	resp := view.PopulateDriverHistory(history)
+	util.RespOK(c, resp)
 }
 
 // UpdateDriverState Update driver state available/busy
@@ -116,9 +202,8 @@ func (h *Handler) UpdateDriverState(c *gin.Context) {
 		return
 	}
 
-	// Validate
-	if input.State == "" || (input.State != model.StateAvailable && input.State != model.StateBusy) {
-		util.RespBadRequest(c, "Invalid state")
+	if err := input.Validate(); err != nil {
+		util.RespBadRequest(c, err.Error())
 		return
 	}
 

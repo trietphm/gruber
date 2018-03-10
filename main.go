@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/trietphm/gruber/app/handler"
 	"github.com/trietphm/gruber/config"
 	"github.com/trietphm/gruber/database"
-	"github.com/trietphm/gruber/handler"
 )
 
 func main() {
