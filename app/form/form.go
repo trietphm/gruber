@@ -24,7 +24,7 @@ type Location struct {
 
 // DriverState Input for update driver state
 type DriverState struct {
-	State string
+	State string `json:"state"`
 }
 
 // RequestRide Input for request a ride
@@ -44,7 +44,7 @@ func (input *RequestRide) Validate() error {
 	}
 
 	if input.Location.Lng > 180 || input.Location.Lng < -180 {
-		return errors.New("Invalid latitude")
+		return errors.New("Invalid longitude")
 	}
 
 	return nil
