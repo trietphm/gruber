@@ -5,8 +5,7 @@ const (
 )
 
 type DriverLocation struct {
-	DriverID  int
-	Lat       float64
-	Lng       float64
-	CreatedAt int64
+	DriverID int
+	Lat      float64
+	Lng      float64
 }

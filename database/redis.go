@@ -71,15 +71,36 @@ func (db Redis) RemoveDriverLocationGeo(driverID int) error {
 // GetNearestDrivers get nearest driver in a radius via Redis GEORADIUS, unit is kilometer
 func (db Redis) GetNearestDrivers(lat, lng, radius float64, limit int) (locations []mredis.DriverLocation, err error) {
 	query := redis.GeoRadiusQuery{
-		Radius: radius,
-		Unit:   "km",
-		Count:  limit,
-		Sort:   "ASC",
+		Radius:    radius,
+		Unit:      "km",
+		Count:     limit,
+		Sort:      "ASC",
+		WithCoord: true,
 	}
-	res := db.GeoRadius(mredis.KeyDriverGeo, lat, lng, &query)
-	if res == nil {
+	cmd := db.GeoRadius(mredis.KeyDriverGeo, lng, lat, &query)
+	if cmd == nil {
 		err = errors.New("Can not execute GEORADIUS")
 		return
+	}
+
+	res, err := cmd.Result()
+	if err != nil {
+		return
+	}
+
+	locations = make([]mredis.DriverLocation, len(res))
+	for i, redisLocation := range res {
+		id, err := strconv.Atoi(redisLocation.Name)
+		if err != nil {
+			continue
+		}
+		location := mredis.DriverLocation{
+			DriverID: id,
+			Lat:      redisLocation.Latitude,
+			Lng:      redisLocation.Longitude,
+		}
+
+		locations[i] = location
 	}
 
 	return
