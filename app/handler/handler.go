@@ -81,8 +81,8 @@ func (h *Handler) RequestDrivers(c *gin.Context) {
 		return
 	}
 
-	// Set default radius 5 km. TODO if not enough then increase radius
-	var defaultRadius float64 = 5
+	// Set default radius 10 km. TODO if not enough then increase radius
+	var defaultRadius float64 = 10
 	numberOfTop := 5
 	drivers, err := h.dbRedis.GetNearestDrivers(input.Location.Lat, input.Location.Lng, defaultRadius, numberOfTop)
 	if err != nil {
