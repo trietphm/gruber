@@ -6,8 +6,11 @@ A simple API for gruber
 ## Install
 
 - Golang
-- Postgresql
-- Cassandra
+- Postgresql. Create user and database gruber.
+- Cassandra. Create user and keyspace gruber:
+```
+CREATE KEYSPACE gruber WITH replication =  {'class': 'SimpleStrategy', 'replication_factor': '1'}  AND durable_writes = true;
+```
 - Setup project:
  - Install postgresql migration tool `goose`: `$ go get bitbucket.org/liamstask/goose/cmd/goose`
  - Install cassandra migration tool `migrate`:
