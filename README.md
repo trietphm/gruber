@@ -13,7 +13,7 @@ A simple API for gruber
  - Install cassandra migration tool `migrate`:
  ```
 	$ go get -u -d github.com/mattes/migrate/cli github.com/gocql/gocql
-	$ go build -tags 'cassandra' -o /usr/local/bin/migrate github.com/mattes/migrate/cli
+	$ go build -tags 'cassandra' -o $GOPATH/bin/migrate github.com/mattes/migrate/cli
  ```
  - Install `dep`: `$ go get -u github.com/golang/dep/cmd/dep`
  - Update project dependencies: `$ dep ensure`
