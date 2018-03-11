@@ -7,6 +7,7 @@ A simple API for gruber
 
 - Golang
 - Postgresql
+- Cassandra
 - Setup project:
  - Install postgresql migration tool `goose`: `$ go get bitbucket.org/liamstask/goose/cmd/goose`
  - Install cassandra migration tool `migrate`:
@@ -16,9 +17,19 @@ A simple API for gruber
  ```
  - Install `dep`: `$ go get -u github.com/golang/dep/cmd/dep`
  - Update project dependencies: `$ dep ensure`
+ - Create database in Postgresql and Cassandra before running migration.
  - Copy migration postgresql config example `migration/postgresql/db/dbconf.yml.example` to `migration/db/dbconf.yml` and update with properly config.
- - Copy migration cassandra config example `migration/cassandra/db/dbconf.yml.example` to `migration/db/dbconf.yml` and update with properly config.
- - Running migration: `$ goose up`
+ - Update migration cassandra config `migration/cassandra/migrate.sh`.
+ - Running migration Postgresql:
+ ```
+ $ cd migration/postgresql
+ $ goose up
+ ```
+ - Running migration Cassandra:
+ ```
+ $ cd migration/cassandra
+ $ ./migrate.sh up
+ ```
  - Copy app config example `config/dbconf.yml.example` to `migration/db/dbconf.yml` and update with properly config.
 
 ## Usage
@@ -26,4 +37,4 @@ A simple API for gruber
 - Build app: `go build -o gruber`
 - Running:
  - With config file: `./gruber -config=config/configuration` (the later `configuration` is config file's name without extension `yaml`)
- - Or running with ENV variable: `./gruber` (see `config/configuration.yaml` for more information about ENV variables)
+ - Or running with ENV variable: `./gruber` (see `config/configuration.yaml.example` for more information about ENV variables)

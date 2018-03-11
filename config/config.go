@@ -2,19 +2,23 @@ package config
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/viper"
 )
 
-var envKeys = []string{"PG_HOST", "PG_PORT", "PG_USER", "PG_PASS", "PG_NAME", "APP_PORT"}
+var envKeys = []string{
+	"PG_HOST", "PG_PORT", "PG_USER", "PG_PASS", "PG_NAME",
+	"CS_CLUSTER", "CS_PORT", "CS_USER", "CS_PASSWORD", "CS_KEYSPACE",
+	"RD_HOST", "RD_PORT", "RD_PASSWORD",
+	"GB_PORT",
+}
 
 // Config app configuration
 type Config struct {
-	Postgresql Postgresql `mapstructure:"postgresql"`
-	Cassandra  Cassandra  `mapstructure:"cassandra"`
-	Redis      Redis      `mapstructure:"redis"`
-	App        App        `mapstructure:"app"`
+	Postgresql Postgresql
+	Cassandra  Cassandra
+	Redis      Redis
+	App        App
 }
 
 // Postgresql Postgresql configuration
@@ -27,22 +31,22 @@ type Postgresql struct {
 }
 
 type Cassandra struct {
-	Cluster  string `mapstructure:"cluster"`
-	Port     string `mapstructure:"port"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	Keyspace string `mapstructure:"keyspace"`
+	Cluster  string `mapstructure:"cs_cluster"`
+	Port     string `mapstructure:"cs_port"`
+	User     string `mapstructure:"cs_user"`
+	Password string `mapstructure:"cs_password"`
+	Keyspace string `mapstructure:"cs_keyspace"`
 }
 
 type Redis struct {
-	Host     string `mapstructure:"host"`
-	Port     string `mapstructure:"port"`
-	Password string `mapstructure:"password"`
+	Host     string `mapstructure:"rd_host"`
+	Port     string `mapstructure:"rd_port"`
+	Password string `mapstructure:"rd_password"`
 }
 
 // App
 type App struct {
-	Port int `mapstructure:"port"`
+	Port int `mapstructure:"gb_port"`
 }
 
 // ReadConfig read configuration from ENV or from config file
@@ -58,17 +62,36 @@ func ReadConfig(configFile string) (*Config, error) {
 		if err := viper.Unmarshal(&cf); err != nil {
 			panic(err)
 		}
+		fmt.Printf("%+v", cf)
 
 		return &cf, nil
 	}
-	viper.SetEnvPrefix("GB")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
 	for _, key := range envKeys {
-		fmt.Println(key, viper.Get(key))
 		viper.BindEnv(key)
 	}
-	if err := viper.Unmarshal(&cf); err != nil {
+	if err := viper.Unmarshal(&cf.Postgresql); err != nil {
+		return nil, err
+	}
+
+	for _, key := range envKeys {
+		viper.BindEnv(key)
+	}
+	if err := viper.Unmarshal(&cf.Redis); err != nil {
+		return nil, err
+	}
+
+	for _, key := range envKeys {
+		viper.BindEnv(key)
+	}
+	if err := viper.Unmarshal(&cf.Cassandra); err != nil {
+		return nil, err
+	}
+
+	for _, key := range envKeys {
+		viper.BindEnv(key)
+	}
+	if err := viper.Unmarshal(&cf.App); err != nil {
 		return nil, err
 	}
 
