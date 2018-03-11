@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"strconv"
 	"time"
 
@@ -90,7 +89,6 @@ func (h *Handler) RequestDrivers(c *gin.Context) {
 		util.RespInternalServerError(c, err)
 		return
 	}
-	fmt.Println(drivers)
 
 	resp := view.PopulateDriverRequests(drivers)
 	util.RespOK(c, resp)
@@ -174,7 +172,6 @@ func (h *Handler) UpdateDriverLocation(c *gin.Context) {
 			Lng: location.Lng,
 		},
 	}
-	fmt.Printf("%+v, %+v\n", input, resp)
 	util.RespOK(c, resp)
 }
 
