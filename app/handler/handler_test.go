@@ -331,6 +331,9 @@ func (mockDbRedis) GetNearestDrivers(lat, lng, radius float64, limit int) ([]mre
 
 // UpdateLocation Update driver's location in database
 func (mockDbCass) CreateDriverLocation(location *mcass.DriverLocation) error {
+	location.DriverID = 1
+	location.Lat = 30
+	location.Lng = 100
 	return nil
 }
 

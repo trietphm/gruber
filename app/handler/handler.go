@@ -170,8 +170,8 @@ func (h *Handler) UpdateDriverLocation(c *gin.Context) {
 	resp := view.DriverLocation{
 		ID: driver.ID,
 		Location: view.Location{
-			Lat: input.Lat,
-			Lng: input.Lng,
+			Lat: location.Lat,
+			Lng: location.Lng,
 		},
 	}
 	fmt.Printf("%+v, %+v\n", input, resp)
