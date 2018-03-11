@@ -19,12 +19,22 @@ func main() {
 		panic(err)
 	}
 
-	db, err := database.OpenPostgresqlDB(conf.Postgresql)
+	dbPg, err := database.OpenPostgresqlDB(conf.Postgresql)
 	if err != nil {
 		panic(err)
 	}
 
-	engine, err := handler.NewEngine(db)
+	dbCass, err := database.OpenCassandraDB(conf.Cassandra)
+	if err != nil {
+		panic(err)
+	}
+
+	dbRedis, err := database.OpenRedisDB(conf.Redis)
+	if err != nil {
+		panic(err)
+	}
+
+	engine, err := handler.NewEngine(dbPg, dbCass, dbRedis)
 	if err != nil {
 		panic(err)
 	}

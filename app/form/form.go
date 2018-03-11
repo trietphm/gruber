@@ -3,7 +3,7 @@ package form
 import (
 	"errors"
 
-	"github.com/trietphm/gruber/model"
+	"github.com/trietphm/gruber/model/mpg"
 )
 
 // Driver input for sign up driver
@@ -18,8 +18,8 @@ type Passenger struct {
 
 // Location input location with latitude and longitude
 type Location struct {
-	Lat float32 `json:"lat"`
-	Lng float32 `json:"lng"`
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
 }
 
 // DriverState Input for update driver state
@@ -52,7 +52,7 @@ func (input *RequestRide) Validate() error {
 
 // Validate validate update driver state
 func (input *DriverState) Validate() error {
-	if input.State == "" || (input.State != model.StateAvailable && input.State != model.StateBusy) {
+	if input.State == "" || (input.State != mpg.StateAvailable && input.State != mpg.StateBusy) {
 		return errors.New("Invalid state")
 	}
 

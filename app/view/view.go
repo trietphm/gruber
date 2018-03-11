@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/trietphm/gruber/model"
+	"github.com/trietphm/gruber/model/mcass"
+	"github.com/trietphm/gruber/model/mredis"
 )
 
 type timestamp time.Time
@@ -47,12 +48,12 @@ type DriverHistory struct {
 
 // Location Response geolocation with latitude, longitude
 type Location struct {
-	Lat float32 `json:"lat"`
-	Lng float32 `json:"lng"`
+	Lat float64 `json:"lat"`
+	Lng float64 `json:"lng"`
 }
 
 // PopulateDriverRequests Populate repsonse for an array of drivers for ride request
-func PopulateDriverRequests(drivers []model.DriverLocation) []DriverLocation {
+func PopulateDriverRequests(drivers []mredis.DriverLocation) []DriverLocation {
 	res := make([]DriverLocation, len(drivers))
 
 	for i, driver := range drivers {
@@ -68,11 +69,11 @@ func PopulateDriverRequests(drivers []model.DriverLocation) []DriverLocation {
 	return res
 }
 
-func PopulateDriverHistory(driverLocations []model.DriverLocation) []DriverHistory {
+func PopulateDriverHistory(driverLocations []mcass.DriverLocation) []DriverHistory {
 	resp := make([]DriverHistory, len(driverLocations))
 	for i, driverLocation := range driverLocations {
 		resp[i] = DriverHistory{
-			Timestamp: timestamp(driverLocation.CreatedAt),
+			Timestamp: timestamp(time.Unix(driverLocation.CreatedAt, 0)),
 			Location: Location{
 				Lat: driverLocation.Lat,
 				Lng: driverLocation.Lng,

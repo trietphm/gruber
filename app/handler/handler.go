@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -8,21 +9,25 @@ import (
 	"github.com/trietphm/gruber/app/form"
 	"github.com/trietphm/gruber/app/view"
 	"github.com/trietphm/gruber/database"
-	"github.com/trietphm/gruber/model"
+	"github.com/trietphm/gruber/model/mcass"
+	"github.com/trietphm/gruber/model/mpg"
 	"github.com/trietphm/gruber/util"
 )
 
 // Handler Manager handler functions
 type Handler struct {
-	DB database.Database
+	dbPg    database.PgI
+	dbCass  database.CassandraI
+	dbRedis database.RedisI
 }
 
 // NewEngine Setup API router
-func NewEngine(db database.Database) (*gin.Engine, error) {
+func NewEngine(dbPg database.PgI, dbCass database.CassandraI, dbRedis database.RedisI) (*gin.Engine, error) {
 	engine := gin.Default()
-
 	handler := Handler{
-		DB: db,
+		dbPg:    dbPg,
+		dbCass:  dbCass,
+		dbRedis: dbRedis,
 	}
 	router := engine.Group("")
 	router.POST("/passengers", handler.CreatePassenger)
@@ -50,10 +55,10 @@ func (h *Handler) CreatePassenger(c *gin.Context) {
 		return
 	}
 
-	passenger := model.Passenger{
+	passenger := mpg.Passenger{
 		Name: input.Name,
 	}
-	if err := h.DB.CreatePassenger(&passenger); err != nil {
+	if err := h.dbPg.CreatePassenger(&passenger); err != nil {
 		util.RespInternalServerError(c, err)
 		return
 	}
@@ -77,11 +82,15 @@ func (h *Handler) RequestDrivers(c *gin.Context) {
 		return
 	}
 
-	drivers, err := h.DB.GetNearestDrivers(input.Location.Lat, input.Location.Lng)
+	// Set default radius 5 km. TODO if not enough then increase radius
+	var defaultRadius float64 = 5
+	numberOfTop := 5
+	drivers, err := h.dbRedis.GetNearestDrivers(input.Location.Lat, input.Location.Lng, defaultRadius, numberOfTop)
 	if err != nil {
 		util.RespInternalServerError(c, err)
 		return
 	}
+	fmt.Println(drivers)
 
 	resp := view.PopulateDriverRequests(drivers)
 	util.RespOK(c, resp)
@@ -100,10 +109,10 @@ func (h *Handler) CreateDriver(c *gin.Context) {
 		return
 	}
 
-	driver := model.Driver{
+	driver := mpg.Driver{
 		Name: input.Name,
 	}
-	if err := h.DB.CreateDriver(&driver); err != nil {
+	if err := h.dbPg.CreateDriver(&driver); err != nil {
 		util.RespInternalServerError(c, err)
 		return
 	}
@@ -129,7 +138,7 @@ func (h *Handler) UpdateDriverLocation(c *gin.Context) {
 		return
 	}
 
-	driver, err := h.DB.GetDriver(driverID)
+	driver, err := h.dbPg.GetDriver(driverID)
 	if err != nil {
 		util.RespInternalServerError(c, err)
 		return
@@ -140,25 +149,32 @@ func (h *Handler) UpdateDriverLocation(c *gin.Context) {
 		return
 	}
 
-	// Create location
-	driverLocation := model.DriverLocation{
-		DriverID: driver.ID,
-		Lat:      input.Lat,
-		Lng:      input.Lng,
+	// Push to redis
+	if err := h.dbRedis.PushDriverLocationGeo(driver.ID, input.Lat, input.Lng); err != nil {
+		util.RespInternalServerError(c, err)
+		return
 	}
 
-	if err := h.DB.CreateDriverLocation(&driverLocation); err != nil {
+	// Save to cassandra
+	location := mcass.DriverLocation{
+		DriverID:  driver.ID,
+		Lat:       input.Lat,
+		Lng:       input.Lng,
+		CreatedAt: time.Now().Unix(),
+	}
+	if err := h.dbCass.CreateDriverLocation(&location); err != nil {
 		util.RespInternalServerError(c, err)
 		return
 	}
 
 	resp := view.DriverLocation{
-		ID: driverLocation.ID,
+		ID: driver.ID,
 		Location: view.Location{
-			Lat: driverLocation.Lat,
-			Lng: driverLocation.Lng,
+			Lat: input.Lat,
+			Lng: input.Lng,
 		},
 	}
+	fmt.Printf("%+v, %+v\n", input, resp)
 	util.RespOK(c, resp)
 }
 
@@ -171,7 +187,7 @@ func (h *Handler) GetDriverHistory(c *gin.Context) {
 		return
 	}
 
-	driver, err := h.DB.GetDriver(driverID)
+	driver, err := h.dbPg.GetDriver(driverID)
 	if err != nil {
 		util.RespInternalServerError(c, err)
 		return
@@ -184,7 +200,7 @@ func (h *Handler) GetDriverHistory(c *gin.Context) {
 
 	// 30 minutes ago
 	t := time.Now().Add(-30 * time.Minute)
-	history, err := h.DB.GetDriverHistory(driver.ID, t)
+	history, err := h.dbCass.GetDriverHistory(driver.ID, t)
 	if err != nil {
 		util.RespInternalServerError(c, err)
 		return
@@ -214,7 +230,7 @@ func (h *Handler) UpdateDriverState(c *gin.Context) {
 		return
 	}
 
-	driver, err := h.DB.GetDriver(driverID)
+	driver, err := h.dbPg.GetDriver(driverID)
 	if err != nil {
 		util.RespInternalServerError(c, err)
 		return
@@ -225,9 +241,32 @@ func (h *Handler) UpdateDriverState(c *gin.Context) {
 		return
 	}
 
-	if err := h.DB.UpdateDriverState(driver.ID, input.State); err != nil {
+	// Update database postgresql
+	if err := h.dbPg.UpdateDriverState(driver.ID, input.State); err != nil {
 		util.RespInternalServerError(c, err)
 		return
+	}
+
+	// Update driver geo in redis
+	switch input.State {
+	case mpg.StateAvailable:
+		// Get driver latest location
+		latestLocation, err := h.dbCass.GetDriverLatestLocation(driver.ID)
+		if err != nil {
+			util.RespInternalServerError(c, err)
+			return
+		}
+
+		if err := h.dbRedis.PushDriverLocationGeo(driver.ID, latestLocation.Lat, latestLocation.Lng); err != nil {
+			util.RespInternalServerError(c, err)
+			return
+		}
+	case mpg.StateBusy:
+		if err := h.dbRedis.RemoveDriverLocationGeo(driver.ID); err != nil {
+			util.RespInternalServerError(c, err)
+			return
+		}
+
 	}
 
 	resp := struct{}{}

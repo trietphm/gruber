@@ -12,6 +12,8 @@ var envKeys = []string{"PG_HOST", "PG_PORT", "PG_USER", "PG_PASS", "PG_NAME", "A
 // Config app configuration
 type Config struct {
 	Postgresql Postgresql `mapstructure:"postgresql"`
+	Cassandra  Cassandra  `mapstructure:"cassandra"`
+	Redis      Redis      `mapstructure:"redis"`
 	App        App        `mapstructure:"app"`
 }
 
@@ -22,6 +24,20 @@ type Postgresql struct {
 	User     string `mapstructure:"pg_user"`
 	Password string `mapstructure:"pg_pass"`
 	Name     string `mapstructure:"pg_name"`
+}
+
+type Cassandra struct {
+	Cluster  string `mapstructure:"cluster"`
+	Port     string `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	Keyspace string `mapstructure:"keyspace"`
+}
+
+type Redis struct {
+	Host     string `mapstructure:"host"`
+	Port     string `mapstructure:"port"`
+	Password string `mapstructure:"password"`
 }
 
 // App

@@ -9,11 +9,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-	"github.com/trietphm/gruber/model"
+	"github.com/trietphm/gruber/model/mcass"
+	"github.com/trietphm/gruber/model/mpg"
+	"github.com/trietphm/gruber/model/mredis"
 )
 
-type MockDatabase struct{}
+type mockDbPg struct{}
+type mockDbRedis struct{}
+type mockDbCass struct{}
+
+func newMockEngine(t *testing.T) *gin.Engine {
+	mockDbPg := mockDbPg{}
+	mockDbRedis := mockDbRedis{}
+	mockDbCass := mockDbCass{}
+	engine, err := NewEngine(mockDbPg, mockDbCass, mockDbRedis)
+	if err != nil {
+		t.FailNow()
+		return nil
+	}
+
+	return engine
+}
 
 func TestGetDriverHistory(t *testing.T) {
 	tt := []struct {
@@ -27,13 +45,7 @@ func TestGetDriverHistory(t *testing.T) {
 		{"/drivers/abc/history", http.StatusNotFound, ""},
 	}
 
-	mockDB := MockDatabase{}
-	router, err := NewEngine(mockDB)
-	if err != nil {
-		t.FailNow()
-		return
-	}
-
+	router := newMockEngine(t)
 	ts := httptest.NewServer(router)
 	for _, tc := range tt {
 		client := ts.Client()
@@ -67,13 +79,7 @@ func TestCreateDriver(t *testing.T) {
 		{"/drivers", `{"name":"INVALID"}`, http.StatusInternalServerError, `{"message":"INTERNAL SERVER ERROR"}`},
 	}
 
-	mockDB := MockDatabase{}
-	router, err := NewEngine(mockDB)
-	if err != nil {
-		t.FailNow()
-		return
-	}
-
+	router := newMockEngine(t)
 	ts := httptest.NewServer(router)
 	for _, tc := range tt {
 		client := ts.Client()
@@ -107,13 +113,7 @@ func TestCreatePassenger(t *testing.T) {
 		{"/passengers", `{"name":"INVALID"}`, http.StatusInternalServerError, `{"message":"INTERNAL SERVER ERROR"}`},
 	}
 
-	mockDB := MockDatabase{}
-	router, err := NewEngine(mockDB)
-	if err != nil {
-		t.FailNow()
-		return
-	}
-
+	router := newMockEngine(t)
 	ts := httptest.NewServer(router)
 	for _, tc := range tt {
 		client := ts.Client()
@@ -141,20 +141,14 @@ func TestUpdateDriverLocation(t *testing.T) {
 		StatusCode int
 		RespData   string
 	}{
-		{"/drivers/1/locations", `{"location":{"lat":30,"lng":100}}`, http.StatusOK, `{"id":1,"location":{"lat":45,"lng":100}}`},
+		{"/drivers/1/locations", `{"location":{"lat":30,"lng":100}}`, http.StatusOK, `{"id":1,"location":{"lat":30,"lng":100}}`},
 		{"/drivers/abc/locations", `{"location":{"lat":30,"lng":100}}`, http.StatusNotFound, ``},
 		{"/drivers/0/locations", `{"location":{"lat":30,"lng":100}}`, http.StatusNotFound, ``},
 		{"/drivers/-1/locations", `{"location":{"lat":30,"lng":100}}`, http.StatusInternalServerError, `{"message":"INTERNAL SERVER ERROR"}`},
 		{"/drivers/1/locations", `{"location":{"lat":"30a","lng":1aa00}}`, http.StatusBadRequest, `{"message":"Invalid format"}`},
 	}
 
-	mockDB := MockDatabase{}
-	router, err := NewEngine(mockDB)
-	if err != nil {
-		t.FailNow()
-		return
-	}
-
+	router := newMockEngine(t)
 	ts := httptest.NewServer(router)
 	for _, tc := range tt {
 		client := ts.Client()
@@ -194,13 +188,7 @@ func TestRequestDrivers(t *testing.T) {
 		{"/requests", `{"passenger_id":"1", "location":{"lat":30,"lng":100}}`, http.StatusBadRequest, `{"message":"Invalid format"}`},
 	}
 
-	mockDB := MockDatabase{}
-	router, err := NewEngine(mockDB)
-	if err != nil {
-		t.FailNow()
-		return
-	}
-
+	router := newMockEngine(t)
 	ts := httptest.NewServer(router)
 	for _, tc := range tt {
 		client := ts.Client()
@@ -237,13 +225,7 @@ func TestUpdateDriverState(t *testing.T) {
 		{"/drivers/-1", `{"state":"busy"}`, http.StatusInternalServerError, `{"message":"INTERNAL SERVER ERROR"}`},
 	}
 
-	mockDB := MockDatabase{}
-	router, err := NewEngine(mockDB)
-	if err != nil {
-		t.FailNow()
-		return
-	}
-
+	router := newMockEngine(t)
 	ts := httptest.NewServer(router)
 	for _, tc := range tt {
 		client := ts.Client()
@@ -271,8 +253,12 @@ func TestUpdateDriverState(t *testing.T) {
 	ts.Close()
 }
 
+// ===============================
+// MOCK DATABASE
+// ===============================
+
 // CreateDriver Insert driver to database
-func (MockDatabase) CreateDriver(driver *model.Driver) error {
+func (mockDbPg) CreateDriver(driver *mpg.Driver) error {
 	switch driver.Name {
 	case "INVALID":
 		return errors.New("Mock error database")
@@ -284,7 +270,7 @@ func (MockDatabase) CreateDriver(driver *model.Driver) error {
 }
 
 // CreatePassenger Insert passenger to database
-func (MockDatabase) CreatePassenger(passenger *model.Passenger) error {
+func (mockDbPg) CreatePassenger(passenger *mpg.Passenger) error {
 	switch passenger.Name {
 	case "INVALID":
 		return errors.New("Mock error database")
@@ -295,14 +281,14 @@ func (MockDatabase) CreatePassenger(passenger *model.Passenger) error {
 }
 
 // UpdateDriverState Update driver state in database
-func (MockDatabase) UpdateDriverState(driverID int, state string) error {
+func (mockDbPg) UpdateDriverState(driverID int, state string) error {
 	return nil
 }
 
-func (MockDatabase) GetDriver(driverID int) (*model.Driver, error) {
+func (mockDbPg) GetDriver(driverID int) (*mpg.Driver, error) {
 	switch driverID {
 	case 1:
-		return &model.Driver{
+		return &mpg.Driver{
 			ID:   1,
 			Name: "Driver 1",
 		}, nil
@@ -311,27 +297,62 @@ func (MockDatabase) GetDriver(driverID int) (*model.Driver, error) {
 	case -1:
 		return nil, errors.New("Mock db error")
 	default:
-		return &model.Driver{
+		return &mpg.Driver{
 			ID:   1,
 			Name: "Driver 1",
 		}, nil
 	}
 }
 
+// =======
+// Mock database redis
+// =======
+
 // UpdateLocation Update driver's location in database
-func (MockDatabase) CreateDriverLocation(location *model.DriverLocation) error {
-	location.ID = 1
-	location.Lat = 45
-	location.Lng = 100
+func (mockDbRedis) PushDriverLocationGeo(driverID int, lat, lng float64) error {
+	return nil
+}
+
+// Remove driver location from redis geo
+func (mockDbRedis) RemoveDriverLocationGeo(driverID int) error {
+	return nil
+}
+
+// GetNearestDrivers Get near available driver near a geo location
+func (mockDbRedis) GetNearestDrivers(lat, lng, radius float64, limit int) ([]mredis.DriverLocation, error) {
+	return []mredis.DriverLocation{}, nil
+}
+
+// =======
+// Mock database cassandra
+// =======
+
+// DriverHistory Get driver history location
+
+// UpdateLocation Update driver's location in database
+func (mockDbCass) CreateDriverLocation(location *mcass.DriverLocation) error {
 	return nil
 }
 
 // DriverHistory Get driver history location
-func (MockDatabase) GetDriverHistory(driverID int, from time.Time) ([]model.DriverLocation, error) {
-	return []model.DriverLocation{}, nil
+func (mockDbCass) GetDriverHistory(driverID int, from time.Time) ([]mcass.DriverLocation, error) {
+	return []mcass.DriverLocation{}, nil
 }
 
-// GetNearestDrivers Get near available driver near a geo location
-func (MockDatabase) GetNearestDrivers(lat, lng float32) ([]model.DriverLocation, error) {
-	return []model.DriverLocation{}, nil
+// GetDriverLatestLocation get latest driver location
+func (mockDbCass) GetDriverLatestLocation(driverID int) (*mcass.DriverLocation, error) {
+	switch driverID {
+	case 1:
+		return &mcass.DriverLocation{
+			DriverID: 1,
+			Lat:      45,
+			Lng:      100,
+		}, nil
+	case 0:
+		return nil, nil
+	case -1:
+		return nil, errors.New("Mock database error")
+	}
+
+	return nil, nil
 }
