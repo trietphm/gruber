@@ -1,5 +1,5 @@
-# gruber
-
+# gruber 
+[![Build Status](https://travis-ci.org/trietphm/gruber.svg?branch=master)](https://travis-ci.org/trietphm/gruber)
 A simple API for gruber
 ===
 
