@@ -21,7 +21,7 @@ type CassandraI interface {
 }
 
 type Cassandra struct {
-	gocql.Session
+	*gocql.Session
 }
 
 var _ CassandraI = CassandraI(Cassandra{})
@@ -38,7 +38,7 @@ func OpenCassandraDB(cfg config.Cassandra) (*Cassandra, error) {
 	}
 	var err error
 	casSession, err := cluster.CreateSession()
-	return &Cassandra{*casSession}, err
+	return &Cassandra{casSession}, err
 }
 
 // CreateDriverLocation Create new driver location in database
